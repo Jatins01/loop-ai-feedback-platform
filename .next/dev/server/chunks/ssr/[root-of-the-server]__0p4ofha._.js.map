@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 10, "column": 0}, "map": {"version":3,"sources":["file:///E:/loop/app/page.tsx"],"sourcesContent":["export default function Page() {\r\n    return <h1>Welcome to Loop AI Feedback Platform</h1>\r\n}"],"names":["Page"],"mappings":";;;;;;AAAe,SAASA;IACpB,qBAAO,8OAAC;kBAAG;;;;;;AACf"}}]
+}
