@@ -109,18 +109,20 @@ export async function GET(req: NextRequest) {
     }
 
     // Date range filtering on createdAt
-    if (query.from || query.to) {
+    const fromDate = query.dateFrom ?? query.from
+    const toDate = query.dateTo ?? query.to
+    if (fromDate || toDate) {
       where.createdAt = {}
-      if (query.from) {
-        where.createdAt.gte = query.from
+      if (fromDate) {
+        where.createdAt.gte = fromDate
       }
-      if (query.to) {
-        where.createdAt.lte = query.to
+      if (toDate) {
+        where.createdAt.lte = toDate
       }
     }
 
     // Search query on content (case-insensitive)
-    const searchTerm = query.search || query.q
+    const searchTerm = query.q ?? query.search
     if (searchTerm) {
       where.content = {
         contains: searchTerm,
@@ -129,7 +131,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Theme filtering: strictly verify that the theme belongs to auth.user.workspaceId
-    const targetThemeId = query.themeId || query.theme
+    const targetThemeId = query.themeId ?? query.theme
     if (targetThemeId) {
       where.themes = {
         some: {
@@ -141,9 +143,11 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 4. Pagination calculations
-    const skip = (query.page - 1) * query.limit
-    const take = query.limit
+    // 4. Pagination calculations (default pageSize = 25, max = 100)
+    const page = query.page
+    const pageSize = query.pageSize ?? query.limit ?? 25
+    const skip = (page - 1) * pageSize
+    const take = pageSize
 
     // 5. Query data and total count concurrently
     const [data, total] = await Promise.all([
@@ -171,15 +175,17 @@ export async function GET(req: NextRequest) {
       prisma.feedback.count({ where }),
     ])
 
-    const totalPages = Math.ceil(total / query.limit)
+    const totalPages = Math.ceil(total / pageSize)
 
     return NextResponse.json({
       data,
       pagination: {
-        page: query.page,
-        limit: query.limit,
-        total,
+        page,
+        pageSize,
+        totalItems: total,
         totalPages,
+        limit: pageSize,
+        total,
       },
     })
   } catch (err: unknown) {

@@ -53,21 +53,49 @@ export type CreateFeedbackInput = z.infer<typeof createFeedbackSchema>
 /**
  * Zod schema for GET /api/feedback query parameter validation.
  */
-export const getFeedbackQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-  channel: z.enum(FEEDBACK_CHANNELS).optional(),
-  sentiment: z.enum(FEEDBACK_SENTIMENTS).optional(),
-  status: z.enum(FEEDBACK_STATUSES).optional(),
-  from: z.coerce.date().optional(),
-  to: z.coerce.date().optional(),
-  themeId: z.string().trim().min(1).optional(),
-  theme: z.string().trim().min(1).optional(), // alias for themeId
-  search: z.string().trim().min(1).max(500).optional(),
-  q: z.string().trim().min(1).max(500).optional(), // alias for search
-  sortBy: z.enum(['createdAt', 'sentimentScore']).default('createdAt'),
-  sortOrder: z.enum(['asc', 'desc']).default('desc'),
-})
+export const getFeedbackQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1, 'page must be >= 1').default(1),
+    pageSize: z.coerce
+      .number()
+      .int()
+      .min(1, 'pageSize must be >= 1')
+      .max(100, 'pageSize cannot exceed 100')
+      .optional(),
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1, 'limit must be >= 1')
+      .max(100, 'limit cannot exceed 100')
+      .optional(),
+    channel: z.enum(FEEDBACK_CHANNELS).optional(),
+    sentiment: z.enum(FEEDBACK_SENTIMENTS).optional(),
+    status: z.enum(FEEDBACK_STATUSES).optional(),
+    dateFrom: z.coerce.date().optional(),
+    dateTo: z.coerce.date().optional(),
+    from: z.coerce.date().optional(), // alias for dateFrom
+    to: z.coerce.date().optional(), // alias for dateTo
+    themeId: z.string().trim().min(1).optional(),
+    theme: z.string().trim().min(1).optional(), // alias for themeId
+    q: z.string().trim().min(1).max(500).optional(),
+    search: z.string().trim().min(1).max(500).optional(), // alias for q
+    sortBy: z.enum(['createdAt', 'sentimentScore']).default('createdAt'),
+    sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  })
+  .refine(
+    (data) => {
+      const fromDate = data.dateFrom ?? data.from
+      const toDate = data.dateTo ?? data.to
+      if (fromDate && toDate && fromDate.getTime() > toDate.getTime()) {
+        return false
+      }
+      return true
+    },
+    {
+      message: 'dateFrom cannot be greater than dateTo',
+      path: ['dateFrom'],
+    }
+  )
 
 export type GetFeedbackQueryInput = z.infer<typeof getFeedbackQuerySchema>
 
@@ -176,4 +204,35 @@ export const csvFeedbackRowSchema = z
   .strict()
 
 export type CsvFeedbackRowInput = z.infer<typeof csvFeedbackRowSchema>
+
+/**
+ * Zod schema for GET /api/insights/dashboard query parameter validation.
+ */
+export const dashboardQuerySchema = z
+  .object({
+    channel: z.enum(FEEDBACK_CHANNELS).optional(),
+    sentiment: z.enum(FEEDBACK_SENTIMENTS).optional(),
+    status: z.enum(FEEDBACK_STATUSES).optional(),
+    dateFrom: z.coerce.date().optional(),
+    dateTo: z.coerce.date().optional(),
+    from: z.coerce.date().optional(),
+    to: z.coerce.date().optional(),
+  })
+  .refine(
+    (data) => {
+      const fromDate = data.dateFrom ?? data.from
+      const toDate = data.dateTo ?? data.to
+      if (fromDate && toDate && fromDate.getTime() > toDate.getTime()) {
+        return false
+      }
+      return true
+    },
+    {
+      message: 'dateFrom cannot be greater than dateTo',
+      path: ['dateFrom'],
+    }
+  )
+
+export type DashboardQueryInput = z.infer<typeof dashboardQuerySchema>
+
 
