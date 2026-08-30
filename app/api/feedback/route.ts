@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { Prisma } from '@/generated/prisma/client'
 import { requirePermission, Permission } from '@/lib/auth'
+import { classifyFeedback, applyClassification } from '@/lib/ai'
+import { storeEmbedding } from '@/lib/embeddings'
 import {
   createFeedbackSchema,
   getFeedbackQuerySchema,
@@ -10,7 +12,8 @@ import { ZodError } from 'zod'
 
 /**
  * POST /api/feedback
- * Creates a new feedback entry for the authenticated user's workspace.
+ * Creates a new feedback entry for the authenticated user's workspace,
+ * then auto-classifies sentiment and workspace themes via Claude.
  * Requires CREATE_FEEDBACK permission.
  */
 export async function POST(req: NextRequest) {
@@ -49,7 +52,62 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return NextResponse.json(feedback, { status: 201 })
+    // 5. Trigger AI auto-classification at ingestion time
+    try {
+      const existingThemes = await prisma.theme.findMany({
+        where: { workspaceId: auth.user.workspaceId },
+        select: { name: true },
+      })
+      const themeNames = existingThemes.map((t) => t.name)
+
+      const classification = await classifyFeedback(
+        feedback.content,
+        themeNames
+      )
+
+      if (classification) {
+        await applyClassification(
+          feedback.id,
+          auth.user.workspaceId,
+          classification
+        )
+      }
+    } catch (aiErr) {
+      console.warn(
+        'AI classification skipped/failed during feedback creation:',
+        aiErr
+      )
+    }
+
+    // 6. Generate and store embedding for vector similarity search
+    try {
+      await storeEmbedding(feedback.id, feedback.content)
+    } catch (embErr) {
+      console.warn(
+        'Embedding generation skipped/failed during feedback creation:',
+        embErr instanceof Error ? embErr.message : embErr
+      )
+    }
+
+    // Fetch and return the finalized feedback record with themes
+    const result = await prisma.feedback.findUnique({
+      where: { id: feedback.id },
+      include: {
+        themes: {
+          include: {
+            theme: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    return NextResponse.json(result ?? feedback, { status: 201 })
   } catch (err: unknown) {
     if (err instanceof ZodError) {
       return NextResponse.json(

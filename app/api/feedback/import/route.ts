@@ -1,6 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requirePermission, Permission } from '@/lib/auth'
+import { classifyFeedback, applyClassification } from '@/lib/ai'
+import { storeEmbedding } from '@/lib/embeddings'
 import {
   csvFeedbackRowSchema,
   REQUIRED_CSV_HEADERS,
@@ -167,11 +169,62 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 7. Batch insert valid rows
+    // 7. Insert valid rows and apply AI classification
     if (validRecords.length > 0) {
-      await prisma.feedback.createMany({
-        data: validRecords,
+      // Fetch initial workspace themes for caching during this import batch
+      const initialThemes = await prisma.theme.findMany({
+        where: { workspaceId: auth.user.workspaceId },
+        select: { name: true },
       })
+      const cachedThemeNames = new Set(initialThemes.map((t) => t.name))
+
+      for (const record of validRecords) {
+        try {
+          const created = await prisma.feedback.create({
+            data: record,
+          })
+
+          // Run AI auto-classification if sentiment is null
+          if (!created.sentiment) {
+            try {
+              const classification = await classifyFeedback(
+                created.content,
+                Array.from(cachedThemeNames)
+              )
+
+              if (classification) {
+                await applyClassification(
+                  created.id,
+                  auth.user.workspaceId,
+                  classification
+                )
+
+                // Update cached theme names
+                for (const t of classification.themes) {
+                  cachedThemeNames.add(t.trim())
+                }
+              }
+            } catch (aiErr) {
+              console.warn(
+                'AI classification skipped for CSV row:',
+                aiErr instanceof Error ? aiErr.message : aiErr
+              )
+            }
+          }
+
+          // Generate and store embedding for vector similarity search
+          try {
+            await storeEmbedding(created.id, created.content)
+          } catch (embErr) {
+            console.warn(
+              'Embedding generation skipped for CSV row:',
+              embErr instanceof Error ? embErr.message : embErr
+            )
+          }
+        } catch (dbErr) {
+          console.error('Failed to create CSV feedback item:', dbErr)
+        }
+      }
     }
 
     return NextResponse.json(
