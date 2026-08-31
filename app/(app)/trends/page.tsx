@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useState, useEffect } from 'react'
 import { TrendCard, ThemeTrendItem } from '@/components/trends/TrendCard'
@@ -51,7 +51,7 @@ export default function TrendsPage() {
     setRefreshTrigger((prev) => prev + 1)
   }
 
-  const spikes = trends.filter((t) => t.isSpike)
+  const spikes = trends.filter((t) => t.isSpiking || t.isSpike)
 
   return (
     <div className="space-y-6">
@@ -144,13 +144,16 @@ export default function TrendsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {trends.map((item) => (
-            <TrendCard
-              key={item.id}
-              item={item}
-              onClick={() => setSelectedTheme({ id: item.id, name: item.name })}
-            />
-          ))}
+          {trends.map((item) => {
+            const id = item.themeId || item.id || item.name
+            return (
+              <TrendCard
+                key={id}
+                item={item}
+                onClick={() => setSelectedTheme({ id, name: item.name })}
+              />
+            )
+          })}
         </div>
       )}
 
