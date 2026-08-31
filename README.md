@@ -13,7 +13,7 @@ Project LOOP is an enterprise-grade customer feedback intelligence platform that
 - **ORM & Data Layer:** Prisma ORM 7 (`@prisma/adapter-pg` driver adapter)
 - **Authentication & RBAC:** NextAuth.js v4 (JWT Session strategy, bcryptjs password hashing)
 - **AI Classification & Narrative:** Anthropic Claude (`@anthropic-ai/sdk`, Claude 3.5 Haiku)
-- **Semantic Vector Embeddings:** OpenAI (`openai`, `text-embedding-3-small` 1536-D)
+- **Semantic Vector Embeddings:** Google Gemini (`@google/genai`, `gemini-embedding-001` 1536-D)
 - **Data Validation:** Zod 4 (Strict schema validation across all API routes)
 - **CSV Ingestion:** PapaParse
 
@@ -34,8 +34,8 @@ Server-side Authentication & RBAC Layer (requireAuth / requirePermission)
       │
       ├──────────────────────────────┬──────────────────────────────┐
       ▼                              ▼                              ▼
-Prisma ORM & PostgreSQL         OpenAI Embeddings            Anthropic Claude
-(Data CRUD & pgvector HNSW)    (text-embedding-3-small)    (Classification / Q&A)
+Prisma ORM & PostgreSQL         Google Gemini Embeddings     Anthropic Claude
+(Data CRUD & pgvector HNSW)    (gemini-embedding-001)       (Classification / Q&A)
       │                              │                              │
       └──────────────────────────────┴──────────────────────────────┘
                                      │
@@ -92,7 +92,7 @@ npm start
 | `NEXTAUTH_SECRET` | NextAuth JWT encryption secret (min 32 characters) | Yes |
 | `NEXTAUTH_URL` | Application root URL (`http://localhost:3000` in dev) | Yes |
 | `ANTHROPIC_API_KEY` | Anthropic API key for Claude classification & narrative generation | Yes |
-| `OPENAI_API_KEY` | OpenAI API key for 1536-dimensional vector embeddings | Yes |
+| `GEMINI_API_KEY` | Google Gemini API key for 1536-dimensional vector embeddings | Yes |
 
 *Note: Real secrets must never be committed to Git. In production, configure these variables directly in your hosting provider's dashboard (e.g. Vercel Project Settings).*
 
@@ -127,7 +127,7 @@ All seeded users belong to the **Demo Company** workspace (`password123`):
 
 ### Intelligence & Reports
 - `GET /api/insights/dashboard` — Aggregated metrics (total volume, negative sentiment %, new this week, volume over time, top themes).
-- `POST /api/insights/ask` — Ask LOOP semantic Q&A using pgvector cosine similarity search and Claude grounded context with prompt-injection defense.
+- `POST /api/insights/ask` — Ask LOOP semantic Q&A using Google Gemini embeddings, pgvector cosine similarity search, and Claude grounded context with prompt-injection defense.
 - `POST /api/reports` — Generate Voice-of-Customer executive reports from pre-computed database statistics and real quotes.
 - `GET /api/reports` — List paginated historical reports.
 - `GET /api/reports/[id]` — Retrieve full report details and narrative.

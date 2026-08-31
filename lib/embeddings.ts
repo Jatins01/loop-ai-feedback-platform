@@ -1,18 +1,19 @@
-import OpenAI from 'openai'
+import { GoogleGenAI } from '@google/genai'
 import { prisma } from '@/lib/db'
 
 /**
- * OpenAI embedding model configuration.
- * text-embedding-3-small produces 1536-dimensional vectors.
+ * Google Gemini embedding model configuration.
+ * gemini-embedding-001 with outputDimensionality configured to 1536
+ * produces 1536-dimensional vector embeddings.
  */
-const EMBEDDING_MODEL = 'text-embedding-3-small'
+const EMBEDDING_MODEL = 'gemini-embedding-001'
 const EMBEDDING_DIMENSIONS = 1536
 
 /**
  * Minimum cosine similarity threshold for retrieval.
  * Results below this threshold are considered irrelevant and excluded.
  * Cosine similarity ranges from -1 to 1, where 1 = identical.
- * 0.25 is a reasonable threshold for text-embedding-3-small.
+ * 0.25 is a reasonable threshold for semantic retrieval.
  */
 export const MIN_SIMILARITY_THRESHOLD = 0.25
 
@@ -27,43 +28,45 @@ export const TOP_K = 8
 const MAX_SNIPPET_LENGTH = 300
 
 /**
- * Returns a server-side OpenAI client if OPENAI_API_KEY is configured.
- * Never exposes the API key.
+ * Returns a server-side Google GenAI client if GEMINI_API_KEY is configured.
+ * Never exposes the API key to client-side code.
  */
-function getOpenAIClient(): OpenAI | null {
-  const apiKey = process.env.OPENAI_API_KEY
+function getGeminiClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     return null
   }
-  return new OpenAI({ apiKey })
+  return new GoogleGenAI({ apiKey })
 }
 
 /**
  * Generates a 1536-dimensional embedding vector for the given text
- * using OpenAI text-embedding-3-small.
+ * using Google Gemini (gemini-embedding-001).
  *
- * Returns null if the OpenAI API key is not configured or if the call fails.
+ * Returns null if the Gemini API key is not configured or if the call fails.
  * Never throws — errors are logged server-side without exposing credentials.
  */
 export async function generateEmbedding(
   text: string
 ): Promise<number[] | null> {
-  const client = getOpenAIClient()
+  const client = getGeminiClient()
   if (!client) {
     console.warn(
-      'OpenAI API key is not configured. Skipping embedding generation.'
+      'Gemini API key is not configured. Skipping embedding generation.'
     )
     return null
   }
 
   try {
-    const response = await client.embeddings.create({
+    const response = await client.models.embedContent({
       model: EMBEDDING_MODEL,
-      input: text.slice(0, 8000), // Limit input to avoid token limits
-      dimensions: EMBEDDING_DIMENSIONS,
+      contents: text.slice(0, 8000), // Limit input to avoid token limits
+      config: {
+        outputDimensionality: EMBEDDING_DIMENSIONS,
+      },
     })
 
-    const vector = response.data[0]?.embedding
+    const vector = response.embeddings?.[0]?.values
     if (!vector || vector.length !== EMBEDDING_DIMENSIONS) {
       console.error(
         `Unexpected embedding dimensions: expected ${EMBEDDING_DIMENSIONS}, got ${vector?.length}`
@@ -74,7 +77,7 @@ export async function generateEmbedding(
     return vector
   } catch (err) {
     console.error(
-      'OpenAI embedding generation failed:',
+      'Gemini embedding generation failed:',
       err instanceof Error ? err.message : 'Unknown error'
     )
     return null
