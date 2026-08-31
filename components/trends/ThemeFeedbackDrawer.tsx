@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useEffect, useState } from 'react'
 import { X, MessageSquare, Loader2, Calendar } from 'lucide-react'
@@ -101,7 +101,7 @@ export function ThemeFeedbackDrawer({
               <p>No feedback records found for this theme.</p>
             </div>
           ) : (
-            items.map((item) => {
+            items.map((item, i) => {
               const sentimentVariant =
                 item.sentiment === 'POS'
                   ? 'positive'
@@ -116,7 +116,7 @@ export function ThemeFeedbackDrawer({
 
               return (
                 <div
-                  key={item.id}
+                  key={`drawer-item-${item.id}-${i}`}
                   className="p-4 rounded-xl border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-800/30 space-y-2 hover:border-zinc-200 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2">
