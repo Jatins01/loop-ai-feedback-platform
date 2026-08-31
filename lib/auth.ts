@@ -72,7 +72,7 @@ export const authOptions: NextAuthOptions = {
       return session
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || 'loop-ai-feedback-platform-local-jwt-secret-dev-2026',
 }
 
 /* ==========================================================================

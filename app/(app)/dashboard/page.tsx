@@ -22,14 +22,14 @@ interface DashboardData {
     totalItems: number
     percentNegative: number
     newThisWeek: number
-    sentimentBreakdown: {
-      POS: number
-      NEU: number
-      NEG: number
-    }
+  }
+  sentimentBreakdown: {
+    positive: number
+    neutral: number
+    negative: number
   }
   volumeOverTime: Array<{ date: string; count: number }>
-  topThemes: Array<{ name: string; count: number; color?: string | null }>
+  topThemes: Array<{ name: string; count: number; themeId?: string }>
 }
 
 const CHANNELS = [
@@ -62,7 +62,7 @@ export default function DashboardPage() {
         }
         const json = await res.json()
         if (!ignore) {
-          setData(json)
+          setData(json.data || json)
           setLoading(false)
         }
       } catch {
@@ -83,6 +83,9 @@ export default function DashboardPage() {
     setLoading(true)
     setRefreshTrigger((prev) => prev + 1)
   }
+
+  const stats = data?.stats
+  const sentiment = data?.sentimentBreakdown
 
   return (
     <div className="space-y-8">
@@ -135,25 +138,25 @@ export default function DashboardPage() {
           <CardSkeleton />
           <CardSkeleton />
         </div>
-      ) : data ? (
+      ) : stats ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           <StatCard
             title="Total Feedback Items"
-            value={data.stats.totalItems.toLocaleString()}
+            value={stats.totalItems.toLocaleString()}
             subtext="All ingested multi-channel feedback"
             icon={<MessageSquare className="w-6 h-6" />}
             variant="default"
           />
           <StatCard
             title="Negative Sentiment"
-            value={`${data.stats.percentNegative}%`}
-            subtext={`${data.stats.sentimentBreakdown.NEG} negative issues flagged`}
+            value={`${stats.percentNegative}%`}
+            subtext={`${sentiment?.negative ?? 0} negative issues flagged`}
             icon={<TrendingDown className="w-6 h-6" />}
             variant="negative"
           />
           <StatCard
             title="New This Week"
-            value={data.stats.newThisWeek.toLocaleString()}
+            value={stats.newThisWeek.toLocaleString()}
             subtext="Ingested in the last 7 days"
             icon={<Sparkles className="w-6 h-6" />}
             variant="positive"
@@ -172,7 +175,7 @@ export default function DashboardPage() {
           <CardContent>
             {loading ? (
               <Skeleton className="h-72 w-full" />
-            ) : data ? (
+            ) : data?.volumeOverTime ? (
               <VolumeChart data={data.volumeOverTime} />
             ) : null}
           </CardContent>
@@ -187,11 +190,11 @@ export default function DashboardPage() {
           <CardContent>
             {loading ? (
               <Skeleton className="h-72 w-full" />
-            ) : data ? (
+            ) : sentiment ? (
               <SentimentChart
-                positive={data.stats.sentimentBreakdown.POS}
-                neutral={data.stats.sentimentBreakdown.NEU}
-                negative={data.stats.sentimentBreakdown.NEG}
+                positive={sentiment.positive}
+                neutral={sentiment.neutral}
+                negative={sentiment.negative}
               />
             ) : null}
           </CardContent>
@@ -207,7 +210,7 @@ export default function DashboardPage() {
         <CardContent>
           {loading ? (
             <Skeleton className="h-72 w-full" />
-          ) : data ? (
+          ) : data?.topThemes ? (
             <ThemesChart data={data.topThemes} />
           ) : null}
         </CardContent>
