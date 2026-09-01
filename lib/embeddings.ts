@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai'
+﻿import { GoogleGenAI } from '@google/genai'
 import { prisma } from '@/lib/db'
 
 /**
@@ -27,6 +27,8 @@ export const TOP_K = 8
  */
 const MAX_SNIPPET_LENGTH = 300
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 /**
  * Returns a server-side Google GenAI client if GEMINI_API_KEY is configured.
  * Never exposes the API key to client-side code.
@@ -43,11 +45,13 @@ function getGeminiClient(): GoogleGenAI | null {
  * Generates a 1536-dimensional embedding vector for the given text
  * using Google Gemini (gemini-embedding-001).
  *
+ * Automatically retries with exponential backoff on 429 / rate limits.
  * Returns null if the Gemini API key is not configured or if the call fails.
  * Never throws — errors are logged server-side without exposing credentials.
  */
 export async function generateEmbedding(
-  text: string
+  text: string,
+  retries = 3
 ): Promise<number[] | null> {
   const client = getGeminiClient()
   if (!client) {
@@ -57,31 +61,46 @@ export async function generateEmbedding(
     return null
   }
 
-  try {
-    const response = await client.models.embedContent({
-      model: EMBEDDING_MODEL,
-      contents: text.slice(0, 8000), // Limit input to avoid token limits
-      config: {
-        outputDimensionality: EMBEDDING_DIMENSIONS,
-      },
-    })
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await client.models.embedContent({
+        model: EMBEDDING_MODEL,
+        contents: text.slice(0, 8000), // Limit input to avoid token limits
+        config: {
+          outputDimensionality: EMBEDDING_DIMENSIONS,
+        },
+      })
 
-    const vector = response.embeddings?.[0]?.values
-    if (!vector || vector.length !== EMBEDDING_DIMENSIONS) {
-      console.error(
-        `Unexpected embedding dimensions: expected ${EMBEDDING_DIMENSIONS}, got ${vector?.length}`
-      )
+      const vector = response.embeddings?.[0]?.values
+      if (!vector || vector.length !== EMBEDDING_DIMENSIONS) {
+        console.error(
+          `Unexpected embedding dimensions: expected ${EMBEDDING_DIMENSIONS}, got ${vector?.length}`
+        )
+        return null
+      }
+
+      return vector
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      const isRateLimit =
+        errMsg.includes('429') ||
+        errMsg.includes('Quota exceeded') ||
+        errMsg.includes('RESOURCE_EXHAUSTED')
+
+      if (isRateLimit && attempt < retries) {
+        console.warn(
+          `Gemini embedding rate-limited on attempt ${attempt}, retrying in ${attempt * 2000}ms...`
+        )
+        await sleep(attempt * 2000)
+        continue
+      }
+
+      console.error('Gemini embedding generation failed:', errMsg)
       return null
     }
-
-    return vector
-  } catch (err) {
-    console.error(
-      'Gemini embedding generation failed:',
-      err instanceof Error ? err.message : 'Unknown error'
-    )
-    return null
   }
+
+  return null
 }
 
 /**
