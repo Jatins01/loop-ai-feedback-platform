@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { generateTextWithAI } from '@/lib/ai'
 import {
@@ -51,7 +51,7 @@ function formatFeedbackContext(results: SimilarFeedback[]): string {
  * Flow:
  * 1. Authenticate user
  * 2. Validate question (Zod)
- * 3. Generate question embedding (Google Gemini gemini-embedding-001 1536-D)
+ * 3. Generate question embedding (Google Gemini gemini-embedding-001 768-D)
  * 4. Retrieve top K similar feedback from workspace (pgvector)
  * 5. If no relevant results → return no-data response (skip LLM generation)
  * 6. Pass retrieved feedback as grounded context to Claude / Gemini
