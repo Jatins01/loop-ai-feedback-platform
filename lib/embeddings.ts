@@ -115,26 +115,16 @@ export async function storeEmbedding(
   feedbackId: string,
   content: string
 ): Promise<void> {
-  // Check if embedding already exists to avoid duplicates
-  const existing = await prisma.embedding.findUnique({
-    where: { feedbackId },
-    select: { id: true },
-  })
-
-  if (existing) {
-    return // Already has an embedding, skip
-  }
-
   const vector = await generateEmbedding(content)
   if (!vector) {
     return // Embedding generation failed or provider unavailable
   }
 
   try {
-    // Use raw SQL to insert the pgvector vector type
+    // Use raw SQL to insert or update the pgvector vector type
     const vectorStr = `[${vector.join(',')}]`
     await prisma.$queryRawUnsafe(
-      `INSERT INTO "Embedding" (id, "feedbackId", vector) VALUES (gen_random_uuid()::text, $1, $2::vector) ON CONFLICT ("feedbackId") DO NOTHING`,
+      `INSERT INTO "Embedding" (id, "feedbackId", vector) VALUES (gen_random_uuid()::text, $1, $2::vector) ON CONFLICT ("feedbackId") DO UPDATE SET vector = EXCLUDED.vector`,
       feedbackId,
       vectorStr
     )
