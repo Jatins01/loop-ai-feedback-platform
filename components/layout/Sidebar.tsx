@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React from 'react'
 import Link from 'next/link'
@@ -24,7 +24,7 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="w-64 shrink-0 bg-zinc-900 text-zinc-100 flex flex-col justify-between border-r border-zinc-800 min-h-screen">
+    <aside className="hidden lg:flex w-64 shrink-0 bg-zinc-900 text-zinc-100 flex-col justify-between border-r border-zinc-800 min-h-screen sticky top-0 h-screen">
       <div>
         {/* Brand Logo */}
         <div className="h-16 flex items-center gap-3 px-6 border-b border-zinc-800">
