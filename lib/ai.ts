@@ -1,4 +1,4 @@
-﻿import { z } from 'zod'
+import { z } from 'zod'
 import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenAI } from '@google/genai'
 import { prisma } from '@/lib/db'
@@ -54,9 +54,12 @@ export function getGeminiGenClient(): GoogleGenAI | null {
   return new GoogleGenAI({ apiKey })
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 /**
  * Unified text generation function that attempts Anthropic Claude first
- * and gracefully falls back to Google Gemini (gemini-3.6-flash).
+ * and gracefully falls back to Google Gemini (gemini-3.6-flash) with
+ * exponential backoff on transient demand/quota spikes.
  */
 export async function generateTextWithAI({
   systemPrompt,
@@ -98,28 +101,49 @@ export async function generateTextWithAI({
     }
   }
 
-  // 2. Fallback to Google Gemini
+  // 2. Fallback to Google Gemini with exponential backoff
   const gemini = getGeminiGenClient()
   if (gemini) {
-    try {
-      const response = await gemini.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: userPrompt,
-        config: {
-          systemInstruction: systemPrompt,
-          temperature,
-          maxOutputTokens: maxTokens,
-        },
-      })
-      const text = response.text
-      if (text && text.trim()) {
-        return text.trim()
+    const maxGeminiRetries = 3
+    for (let attempt = 1; attempt <= maxGeminiRetries; attempt++) {
+      try {
+        const response = await gemini.models.generateContent({
+          model: 'gemini-3.6-flash',
+          contents: userPrompt,
+          config: {
+            systemInstruction: systemPrompt,
+            temperature,
+            maxOutputTokens: maxTokens,
+          },
+        })
+        const text = response.text
+        if (text && text.trim()) {
+          return text.trim()
+        }
+      } catch (geminiErr) {
+        const errMsg =
+          geminiErr instanceof Error ? geminiErr.message : String(geminiErr)
+        const isTransient =
+          errMsg.includes('503') ||
+          errMsg.includes('429') ||
+          errMsg.includes('UNAVAILABLE') ||
+          errMsg.includes('RESOURCE_EXHAUSTED') ||
+          errMsg.includes('high demand') ||
+          errMsg.includes('Quota exceeded')
+
+        if (isTransient && attempt < maxGeminiRetries) {
+          console.warn(
+            `Gemini generation transient error on attempt ${attempt}, retrying in ${attempt * 1500}ms...`
+          )
+          await sleep(attempt * 1500)
+          continue
+        }
+
+        console.error(
+          'Gemini generation fallback failed:',
+          errMsg
+        )
       }
-    } catch (geminiErr) {
-      console.error(
-        'Gemini generation fallback failed:',
-        geminiErr instanceof Error ? geminiErr.message : geminiErr
-      )
     }
   }
 
