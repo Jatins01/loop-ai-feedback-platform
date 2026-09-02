@@ -1,13 +1,13 @@
-﻿import { GoogleGenAI } from '@google/genai'
+import { GoogleGenAI } from '@google/genai'
 import { prisma } from '@/lib/db'
 
 /**
  * Google Gemini embedding model configuration.
- * gemini-embedding-001 with outputDimensionality configured to 1536
- * produces 1536-dimensional vector embeddings.
+ * gemini-embedding-001 with outputDimensionality configured to 768
+ * produces 768-dimensional vector embeddings.
  */
 const EMBEDDING_MODEL = 'gemini-embedding-001'
-const EMBEDDING_DIMENSIONS = 1536
+const EMBEDDING_DIMENSIONS = 768
 
 /**
  * Minimum cosine similarity threshold for retrieval.
@@ -42,7 +42,7 @@ function getGeminiClient(): GoogleGenAI | null {
 }
 
 /**
- * Generates a 1536-dimensional embedding vector for the given text
+ * Generates a 768-dimensional embedding vector for the given text
  * using Google Gemini (gemini-embedding-001).
  *
  * Automatically retries with exponential backoff on 429 / rate limits.
