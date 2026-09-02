@@ -51,7 +51,7 @@ export default function TrendsPage() {
     setRefreshTrigger((prev) => prev + 1)
   }
 
-  const spikes = trends.filter((t) => t.isSpike)
+  const spikes = trends.filter((t) => t.isSpiking || t.isSpike)
 
   return (
     <div className="space-y-6">
@@ -59,7 +59,7 @@ export default function TrendsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-            Theme Trends & Spike Detection
+            Theme Trends &amp; Spike Detection
           </h1>
           <p className="text-xs text-zinc-500 mt-1">
             Compare period-over-period theme volume and detect emerging feedback spikes (&gt;50% growth)
@@ -144,13 +144,16 @@ export default function TrendsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {trends.map((item) => (
-            <TrendCard
-              key={item.id}
-              item={item}
-              onClick={() => setSelectedTheme({ id: item.id, name: item.name })}
-            />
-          ))}
+          {trends.map((item, index) => {
+            const id = item.themeId || item.id || item.name || `theme-${index}`
+            return (
+              <TrendCard
+                key={`trend-card-${id}-${index}`}
+                item={item}
+                onClick={() => setSelectedTheme({ id, name: item.name })}
+              />
+            )
+          })}
         </div>
       )}
 

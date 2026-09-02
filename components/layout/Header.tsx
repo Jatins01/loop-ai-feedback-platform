@@ -1,13 +1,33 @@
-'use client'
+﻿'use client'
 
 import React from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
-import { LogOut, Building2, User as UserIcon } from 'lucide-react'
+import {
+  LogOut,
+  Building2,
+  User as UserIcon,
+  LayoutDashboard,
+  Inbox,
+  TrendingUp,
+  Sparkles,
+  FileText,
+} from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 
+const NAV_ITEMS = [
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Inbox', href: '/inbox', icon: Inbox },
+  { label: 'Trends', href: '/trends', icon: TrendingUp },
+  { label: 'Ask LOOP', href: '/ask', icon: Sparkles },
+  { label: 'Reports', href: '/reports', icon: FileText },
+]
+
 export function Header() {
   const { data: session } = useSession()
+  const pathname = usePathname()
   const user = session?.user
 
   const roleVariant =
@@ -15,17 +35,43 @@ export function Header() {
 
   return (
     <header className="h-16 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6 flex items-center justify-between shrink-0">
-      {/* Workspace Indicator */}
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
-          <Building2 className="w-4 h-4" />
+      {/* Workspace Indicator & Quick Nav */}
+      <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+            <Building2 className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider block">Workspace</span>
+            <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 leading-tight">
+              Demo Company
+            </p>
+          </div>
         </div>
-        <div>
-          <span className="text-xs text-zinc-500 font-medium">Workspace</span>
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Demo Company
-          </p>
-        </div>
+
+        {/* Top Navigation Links for Quick Access */}
+        <nav className="hidden md:flex items-center gap-1 border-l border-zinc-200 dark:border-zinc-800 pl-4">
+          {NAV_ITEMS.map((item) => {
+            const isActive =
+              pathname === item.href ||
+              (item.href !== '/dashboard' && pathname.startsWith(item.href))
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-semibold'
+                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </nav>
       </div>
 
       {/* User Info & Actions */}

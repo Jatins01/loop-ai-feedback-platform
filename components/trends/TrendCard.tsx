@@ -4,14 +4,17 @@ import { Badge } from '@/components/ui/Badge'
 import { TrendingUp, TrendingDown, Minus, AlertTriangle, ArrowRight } from 'lucide-react'
 
 export interface ThemeTrendItem {
-  id: string
+  themeId?: string
+  id?: string
   name: string
   description?: string | null
   color?: string | null
   currentCount: number
-  previousCount: number
-  percentageChange: number | null
-  isSpike: boolean
+  previousCount: number | null
+  percentChange?: number | null
+  percentageChange?: number | null
+  isSpiking?: boolean
+  isSpike?: boolean
 }
 
 interface TrendCardProps {
@@ -20,14 +23,16 @@ interface TrendCardProps {
 }
 
 export function TrendCard({ item, onClick }: TrendCardProps) {
-  const isPositiveGrowth = (item.percentageChange ?? 0) > 0
-  const isZero = item.percentageChange === 0 || item.percentageChange === null
+  const percent = item.percentChange ?? item.percentageChange ?? null
+  const isSpike = item.isSpiking ?? item.isSpike ?? false
+  const isPositiveGrowth = (percent ?? 0) > 0
+  const isZero = percent === 0 || percent === null
 
   return (
     <Card
       onClick={onClick}
       className={`p-5 relative transition-all hover:shadow-md ${
-        item.isSpike
+        isSpike
           ? 'border-red-300 dark:border-red-900/60 bg-red-50/20 dark:bg-red-950/10'
           : 'hover:border-indigo-200 dark:hover:border-indigo-900/50'
       }`}
@@ -38,7 +43,7 @@ export function TrendCard({ item, onClick }: TrendCardProps) {
             <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
               {item.name}
             </h3>
-            {item.isSpike && (
+            {isSpike && (
               <Badge variant="spike" size="sm" className="gap-1">
                 <AlertTriangle className="w-3 h-3 text-red-600" />
                 Spike Alert
@@ -63,7 +68,7 @@ export function TrendCard({ item, onClick }: TrendCardProps) {
           <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
             {item.currentCount}
           </p>
-          <span className="text-[11px] text-zinc-400">vs {item.previousCount} prev</span>
+          <span className="text-[11px] text-zinc-400">vs {item.previousCount ?? 0} prev</span>
         </div>
 
         <div className="text-right">
@@ -71,15 +76,15 @@ export function TrendCard({ item, onClick }: TrendCardProps) {
             Trend Growth
           </span>
           <div className="flex items-center justify-end gap-1 mt-1">
-            {item.isSpike ? (
+            {isSpike ? (
               <div className="flex items-center gap-1 text-red-600 font-bold text-sm">
                 <TrendingUp className="w-4 h-4" />
-                <span>+{item.percentageChange}%</span>
+                <span>+{percent}%</span>
               </div>
             ) : isPositiveGrowth ? (
               <div className="flex items-center gap-1 text-amber-600 font-bold text-sm">
                 <TrendingUp className="w-4 h-4" />
-                <span>+{item.percentageChange}%</span>
+                <span>+{percent}%</span>
               </div>
             ) : isZero ? (
               <div className="flex items-center gap-1 text-zinc-500 font-semibold text-sm">
@@ -89,12 +94,12 @@ export function TrendCard({ item, onClick }: TrendCardProps) {
             ) : (
               <div className="flex items-center gap-1 text-emerald-600 font-bold text-sm">
                 <TrendingDown className="w-4 h-4" />
-                <span>{item.percentageChange}%</span>
+                <span>{percent}%</span>
               </div>
             )}
           </div>
           <span className="text-[10px] text-zinc-400 block mt-0.5">
-            {item.isSpike ? '>50% volume spike' : 'period-over-period'}
+            {isSpike ? '>50% volume spike' : 'period-over-period'}
           </span>
         </div>
       </div>
