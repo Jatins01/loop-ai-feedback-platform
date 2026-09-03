@@ -1,4 +1,4 @@
-﻿import { z } from 'zod'
+import { z } from 'zod'
 import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenAI } from '@google/genai'
 import { prisma } from '@/lib/db'
@@ -54,9 +54,41 @@ export function getGeminiGenClient(): GoogleGenAI | null {
   return new GoogleGenAI({ apiKey })
 }
 
+export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Checks if a Gemini error is a transient failure (e.g. 503 high demand, 429 quota/rate limit)
+ * that warrants an automatic bounded retry.
+ */
+export function isTransientGeminiError(err: unknown): boolean {
+  if (!err) return false
+
+  // Check HTTP status code if present on error object
+  const status = (err as { status?: number; statusCode?: number })?.status ??
+                 (err as { status?: number; statusCode?: number })?.statusCode
+  if (status === 503 || status === 429 || status === 500 || status === 502 || status === 504) {
+    return true
+  }
+
+  const errMsg = err instanceof Error ? err.message : String(err)
+  return (
+    errMsg.includes('503') ||
+    errMsg.includes('429') ||
+    errMsg.includes('UNAVAILABLE') ||
+    errMsg.includes('RESOURCE_EXHAUSTED') ||
+    errMsg.includes('high demand') ||
+    errMsg.includes('Quota exceeded') ||
+    errMsg.includes('rate limit') ||
+    errMsg.includes('fetch failed') ||
+    errMsg.includes('ECONNRESET') ||
+    errMsg.includes('ETIMEDOUT')
+  )
+}
+
 /**
  * Unified text generation function that attempts Anthropic Claude first
- * and gracefully falls back to Google Gemini (gemini-3.6-flash).
+ * and gracefully falls back to Google Gemini (gemini-3.6-flash) with
+ * bounded exponential backoff on transient demand/quota spikes.
  */
 export async function generateTextWithAI({
   systemPrompt,
@@ -64,12 +96,14 @@ export async function generateTextWithAI({
   temperature = 0.2,
   maxTokens = 1500,
   clientOverride,
+  geminiOverride,
 }: {
   systemPrompt: string
   userPrompt: string
   temperature?: number
   maxTokens?: number
   clientOverride?: Anthropic
+  geminiOverride?: GoogleGenAI
 }): Promise<string | null> {
   // 1. Attempt Anthropic Claude first
   const anthropic = clientOverride ?? getAnthropicClient()
@@ -87,7 +121,7 @@ export async function generateTextWithAI({
         response.content && response.content[0]?.type === 'text'
           ? response.content[0].text
           : ''
-      if (text.trim()) {
+      if (text && text.trim()) {
         return text.trim()
       }
     } catch (anthropicErr) {
@@ -98,28 +132,48 @@ export async function generateTextWithAI({
     }
   }
 
-  // 2. Fallback to Google Gemini
-  const gemini = getGeminiGenClient()
+  // 2. Fallback to Google Gemini with bounded exponential backoff
+  const gemini = geminiOverride ?? getGeminiGenClient()
   if (gemini) {
-    try {
-      const response = await gemini.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: userPrompt,
-        config: {
-          systemInstruction: systemPrompt,
-          temperature,
-          maxOutputTokens: maxTokens,
-        },
-      })
-      const text = response.text
-      if (text && text.trim()) {
-        return text.trim()
+    const maxGeminiRetries = 3
+    for (let attempt = 1; attempt <= maxGeminiRetries; attempt++) {
+      try {
+        const response = await gemini.models.generateContent({
+          model: 'gemini-3.6-flash',
+          contents: userPrompt,
+          config: {
+            systemInstruction: systemPrompt,
+            temperature,
+            maxOutputTokens: maxTokens,
+          },
+        })
+        const text = response.text
+        if (text && text.trim()) {
+          return text.trim()
+        }
+      } catch (geminiErr) {
+        const isTransient = isTransientGeminiError(geminiErr)
+        const errMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr)
+
+        if (isTransient && attempt < maxGeminiRetries) {
+          const waitMs = attempt * 1500 // attempt 1 = 1500ms, attempt 2 = 3000ms
+          console.warn(
+            `Gemini generation transient error on attempt ${attempt}, retrying in ${waitMs}ms...`
+          )
+          await sleep(waitMs)
+          continue
+        }
+
+        console.error(
+          'Gemini generation fallback failed:',
+          errMsg
+        )
+
+        // Permanent error — do NOT retry
+        if (!isTransient) {
+          return null
+        }
       }
-    } catch (geminiErr) {
-      console.error(
-        'Gemini generation fallback failed:',
-        geminiErr instanceof Error ? geminiErr.message : geminiErr
-      )
     }
   }
 

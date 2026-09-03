@@ -8,31 +8,22 @@ import {
   LogOut,
   Building2,
   User as UserIcon,
-  LayoutDashboard,
-  Inbox,
-  TrendingUp,
-  Sparkles,
-  FileText,
   Menu,
   X,
   MessageSquareQuote,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-
-const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Inbox', href: '/inbox', icon: Inbox },
-  { label: 'Trends', href: '/trends', icon: TrendingUp },
-  { label: 'Ask LOOP', href: '/ask', icon: Sparkles },
-  { label: 'Reports', href: '/reports', icon: FileText },
-]
+import { getVisibleNavItems } from '@/lib/navigation'
 
 export function Header() {
   const { data: session } = useSession()
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const user = session?.user
+
+  // Role-aware navigation items
+  const visibleItems = getVisibleNavItems(user?.role)
 
   // Prevent background scroll when mobile menu is open
   useEffect(() => {
@@ -78,7 +69,7 @@ export function Header() {
 
           {/* Top Navigation Links for Desktop / Large Screen Quick Access */}
           <nav className="hidden xl:flex items-center gap-1 border-l border-zinc-200 dark:border-zinc-800 pl-4">
-            {NAV_ITEMS.map((item) => {
+            {visibleItems.map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== '/dashboard' && pathname.startsWith(item.href))
@@ -194,7 +185,7 @@ export function Header() {
                 <div className="px-3 py-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
                   Menu Navigation
                 </div>
-                {NAV_ITEMS.map((item) => {
+                {visibleItems.map((item) => {
                   const isActive =
                     pathname === item.href ||
                     (item.href !== '/dashboard' && pathname.startsWith(item.href))
@@ -210,7 +201,7 @@ export function Header() {
                           : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60'
                       }`}
                     >
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'text-zinc-400'}`} />
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-400' : 'text-zinc-400'}`} />
                       <span>{item.label}</span>
                     </Link>
                   )
